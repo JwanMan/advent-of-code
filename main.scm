@@ -1,9 +1,12 @@
+#!/usr/bin/env guile
+!#
+
 (use-modules (ice-9 format) (ice-9 regex))
 
 (define args (program-arguments))
 
 (unless (<= 2 (length args) 3)
-  (error (format #f "Syntax: ~a <DAY><a|b> [INFILE]\n"))
+  (error (format #f "Syntax: ~a <DAY><a|b> [INFILE]\n" (car args)))
   (exit 1))
 
 (define mtch (string-match "^([0-9]+)(a|b)$" (list-ref args 1)))
