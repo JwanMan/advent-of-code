@@ -2,6 +2,7 @@
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 regex)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-69))
 
@@ -51,10 +52,9 @@
     (let ((line (read-line port)))
       (if (or (eof-object? line) (string=? "" line))
           rules
-          (call-with-values (lambda () (parse-ordering-rule line))
-            (lambda (before after)
-              (ordering-rules-add! rules before after)
-              (loop)))))))
+          (let-values (((before after) (parse-ordering-rule line)))
+            (ordering-rules-add! rules before after)
+            (loop))))))
 
 (define page-update-regexp (make-regexp "^([0-9]+,)*[0-9]+$"))
 
