@@ -1,29 +1,35 @@
-#!/usr/bin/lua
+#!/usr/bin/env guile
+!#
 
-if #arg < 1 or #arg > 2 then
-    error ("Syntax: %s <DAY><a|b> [inputfile]"):format(arg[0])
-    os.exit(1)
-end
+(use-modules (ice-9 format) (ice-9 regex))
 
-local num, letter = arg[1]:match("^(%d+)([ab])$")
-if not num then
-    error ('Expected <DAY><a|b> as first argument (e.g. "01b"), got: %s'):format(arg[1])
-    os.exit(1)
-end
-num = tonumber(num)
+(define args (program-arguments))
 
-local script = ("%02d.lua"):format(num)
-local infile = arg[2] or ("%02d.in"):format(num)
-local input_stream = io.open(infile)
-if input_stream then
-    io.input(input_stream)
-else
-    print "Reading from standard input."
-end
+(unless (<= 2 (length args) 3)
+  (error (format #f "Syntax: ~a <DAY><a|b> [INFILE]\n" (car args)))
+  (exit 1))
 
-local parsed = loadfile(script)()
-if letter == 'a' then
-    parsed:part1()
-else
-    parsed:part2()
-end
+(define mtch (string-match "^([0-9]+)(a|b)$" (list-ref args 1)))
+
+(unless mtch
+  (error (format #f "Expected day and part (like \"03a\" or \"02b\"), got: ~a"
+                 (list-ref args 1))))
+
+(define day (format #f "~2,'0d" (string->number (match:substring mtch 1))))
+(define part (if (string= (match:substring mtch 2) "a") 'part1 'part2))
+
+(set! %load-path (cons "." %load-path))
+
+(define day-module
+  (resolve-module (list (string->symbol (string-append "day" day)))))
+(define func (module-ref day-module part))
+
+(define input-file
+  (cond ((= (length args) 2) (string-append day ".in"))
+        ((string= (list-ref args 2) "-") #f)
+        (else (list-ref args 2))))
+
+(display (if input-file
+             (call-with-input-file input-file func)
+             (func (current-input-port))))
+(newline)
