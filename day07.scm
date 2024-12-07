@@ -20,34 +20,41 @@
                  (map string->number
                       (string-split (match:substring mtch 2) #\space))))
 
-(define (equation-plausible? equation . ops)
-  (define result (equation-result equation))
-  (define (attempt? lst)
-    (cond ((null? (cdr lst)) (= (car lst) result))
-          ((> (car lst) result) #f)
-          (else (match-let (((fst snd . rest) lst))
-                  (any (lambda (op) (attempt? (cons (op fst snd) rest)))
-                       ops)))))
-  (attempt? (equation-operands equation)))
+(define (backtrack-fast equation concat?)
+  (define (attempt? lst result)
+    (if (null? (cdr lst))
+        (= (car lst) result)
+        (or (let ((x (/ result (car lst))))
+              (and (integer? x) (attempt? (cdr lst) x)))
+            (and concat?
+                 (let ((res (number->string result))
+                       (x (number->string (car lst))))
+                   (and (string-suffix? x res)
+                        (> (string-length res) (string-length x))
+                        (attempt? (cdr lst)
+                                  (string->number
+                                   (substring res 0
+                                              (- (string-length res)
+                                                 (string-length x))))))))
+            (let ((diff (- result (car lst))))
+              (and (not (negative? diff)) (attempt? (cdr lst) diff))))))
+  (attempt? (reverse (equation-operands equation)) (equation-result equation)))
 
-(define (ex-iter port acc nlines pred)
+(define (ex-iter port acc nlines concat?)
   (define line (read-line port))
   (when (zero? (modulo nlines 100))
     (format #t "Parsing line ~a...\n" nlines))
   (if (or (eof-object? line) (string= "" line))
       acc
       (let ((eq (parse-equation line)))
-        (ex-iter port (if (pred eq)
+        (ex-iter port (if (backtrack-fast eq concat?)
                           (+ acc (equation-result eq))
                           acc)
                  (+ nlines 1)
-                 pred))))
+                 concat?))))
 
 (define* (part1 #:optional (port (current-input-port)))
-  (ex-iter port 0 1 (lambda (eq) (equation-plausible? eq + *))))
-
-(define (|| n1 n2)
-  (string->number (string-append (number->string n1) (number->string n2))))
+  (ex-iter port 0 1 #f))
 
 (define* (part2 #:optional (port (current-input-port)))
-  (ex-iter port 0 1 (lambda (eq) (equation-plausible? eq + * ||))))
+  (ex-iter port 0 1 #t))
