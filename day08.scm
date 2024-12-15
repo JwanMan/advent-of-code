@@ -1,0 +1,122 @@
+(define-module (day08)
+  #:use-module (ice-9 rdelim)
+  #:use-module (oop goops)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
+  #:use-module (srfi srfi-43))
+
+(define-class <problem> ()
+  #| A description of the problem at hand. |#
+  (height #:init-value 0 #:accessor problem-height #| The height of the map. |#)
+  (width #:init-value 0 #:accessor problem-width #| The width of the map. |#)
+  (nodes #:init-thunk make-hash-table
+         #| A hashv that associates each letter that appears with a list of
+            positions of antennas, represented as (y, x) pairs. |#))
+
+(define-method (display (problem <problem>) port)
+  (define result
+    (list->vector
+     (list-tabulate (problem-height problem)
+                    (lambda (_i) (make-string (problem-width problem) #\.)))))
+  (define (add-dots c pts)
+    (unless (null? pts)
+      (when (and (< -1 (caar pts) (problem-height problem))
+                 (< -1 (cdar pts) (problem-width problem)))
+        (string-set! (vector-ref result (caar pts)) (cdar pts) c))))
+  (hash-for-each add-dots result)
+  (vector-for-each (cut write-line <> port) result))
+
+(define (problem-add! problem y x chr)
+  (define ht (slot-ref problem 'nodes))
+  (hashv-set! ht chr
+              (cons (cons y x) (hashv-ref ht chr '()))))
+
+(define (problem-nodes problem chr)
+  (hashv-ref (slot-ref problem 'nodes) chr '()))
+
+(define* (read-problem #:optional (port (current-input-port)))
+  (define problem (make <problem>))
+  (define (iter y w)
+    (define line (read-line))
+    (if (or (eof-object? line) (string= line ""))
+      (begin (set! (problem-width problem) w)
+	     (set! (problem-height problem) y))
+      (begin
+      (string-for-each-index
+	(lambda (i)
+	  (unless (char=? (string-ref line i) #\.)
+	    (problem-add! problem y i (string-ref line i))))
+	line)
+      (iter (+ y 1) (max w (string-length line))))))
+  (iter 0 0)
+  problem)
+
+(define (antinode n1 n2)
+  (cons (- (* 2 (car n2)) (car n1))
+	(- (* 2 (cdr n2)) (cdr n1))))
+
+(define (add-point! mp pt)
+  (when (array-in-bounds? mp (car pt) (cdr pt))
+    (array-set! mp 1 (car pt) (cdr pt))))
+
+(define (problem-count-anti-nodes problem)
+  (define mp (make-array 0 (problem-height problem)
+			 (problem-width problem)))
+  (define count 0)
+  (define (add-from poss)
+    (unless (null-list? poss)
+      (for-each
+	(lambda (t)
+	  (add-point! mp (antinode (car poss) t))
+	  (add-point! mp (antinode t (car poss))))
+	(cdr poss))
+      (add-from (cdr poss))))
+  (hash-for-each (lambda (chr poss) (add-from poss))
+		 (slot-ref problem 'nodes))
+  (array-for-each (lambda (x) (set! count (+ count x)))
+		  mp)
+  count)
+
+(define* (part1 #:optional (port (current-input-port)))
+	 (problem-count-anti-nodes (read-problem port)))
+
+(define (add-antinodes! mp n1 n2)
+  (define vy (- (car n2) (car n1)))
+  (define vx (- (cdr n2) (cdr n1)))
+  (define divider (gcd vx vy))
+  (define dy (/ vy divider))
+  (define dx (/ vx divider))
+  (define-values (h w) (apply values (array-dimensions mp)))
+  (define y1 (- (/ (car n1) dy)))
+  (define y2 (/ (- h 1 (car n1)) dy))
+  (define x1 (- (/ (cdr n1) dx)))
+  (define x2 (/ (- w 1 (cdr n1)) dx))
+  (define kstart (ceiling (max (min x1 x2) (min y1 y2))))
+  (define kend (floor (min (max x1 x2) (max y1 y2))))
+  (define (iter k)
+    (unless (> k kend)
+      (array-set! mp 1 (+ (car n1) (* k dy))
+		  (+ (cdr n1) (* k dx)))
+      (iter (+ k 1))))
+  (iter kstart))
+
+(define (problem-count-anti-nodes2 problem)
+  (define mp (make-array 0 (problem-height problem)
+			 (problem-width problem)))
+  (define count 0)
+  (define (add-from poss)
+    (unless (null-list? poss)
+      (for-each
+	(lambda (t)
+	  (add-antinodes! mp (car poss) t))
+	(cdr poss))
+      (add-from (cdr poss))))
+  (hash-for-each (lambda (chr poss) (add-from poss))
+		 (slot-ref problem 'nodes))
+  (array-for-each (lambda (x) (set! count (+ count x)))
+		  mp)
+  count)
+
+(define* (part2 #:optional (port (current-input-port)))
+	 (problem-count-anti-nodes2 (read-problem port)))
+
