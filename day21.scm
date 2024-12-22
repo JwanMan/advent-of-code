@@ -34,7 +34,6 @@
                                 (array-ref obj (- m 1) 0)
                                 (array-ref obj (- m 1) (- n 1)))))))))
 
-
 (define (horizontal-key src dst)
   (cond ((= src dst) 0)
         ((> src dst) 3)
@@ -87,7 +86,6 @@
   next)
 
 (define +keypad0+ (make-array 0 5 5))
-
 (define +directional-keypad-spec+ #2((#f 2 0) (3 4 1)))
 (define +numerical-keypad-spec+ #2((7 8 9) (4 5 6) (1 2 3) (#f 0 10)))
 
@@ -98,11 +96,6 @@
     (if (zero? left)
         (next-keypad directional +numerical-keypad-spec+)
         (iter (- left 1) (next-keypad directional +directional-keypad-spec+)))))
-
-
-(define +keypad1+ (next-keypad +keypad0+ +directional-keypad-spec+))
-(define +keypad2+ (next-keypad +keypad1+ +directional-keypad-spec+))
-(define +keypad3+ (next-keypad +keypad2+ +numerical-keypad-spec+))
 
 (define (char->num c)
   (assume (and (char? c) (or (char<=? #\0 c #\9) (char=? c #\A)))
